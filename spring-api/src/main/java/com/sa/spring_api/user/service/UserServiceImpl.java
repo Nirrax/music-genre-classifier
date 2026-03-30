@@ -23,16 +23,19 @@ public class UserServiceImpl implements UserService {
     }
 
     @Transactional(readOnly = true)
+    @Override
     public List<User> getUsers() {
         return this.userRepository.findAll();
     }
 
     @Transactional(readOnly = true)
+    @Override
     public User getUserById(UUID id) {
         return this.userRepository.findById(id).orElseThrow( () -> new UserNotFoundException("User not found"));
     }
 
     @Transactional
+    @Override
     public User updateUserPasswordById(UUID id, UpdateUserRequest credentials) {
         if (credentials.currentPassword().equals(credentials.newPassword())) {
             throw new IllegalArgumentException("Passwords do not differ from each other");
@@ -48,11 +51,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Transactional
+    @Override
     public void deleteUserById(UUID id) {
         this.userRepository.findById(id).ifPresent(userRepository::delete);
     }
 
     @Transactional
+    @Override
     public User createUser(RegisterRequest user) {
         return userRepository.save(new User(user.username(), user.password()));
     }
