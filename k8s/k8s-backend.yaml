@@ -1,0 +1,127 @@
+# ============================================
+# BACKEND (Spring Boot API)
+# ============================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: music-classifier
+data:
+  # Database - Write
+  #SPRING_DATASOURCE_WRITE_JDBC_URL: "jdbc:postgresql://postgres-primary:5432/mydb"
+  SPRING_DATASOURCE_WRITE_JDBC_URL: "jdbc:postgresql://postgres:5432/mydb"
+  SPRING_DATASOURCE_WRITE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+
+  # Database - Read
+  #SPRING_DATASOURCE_READ_JDBC_URL: "jdbc:postgresql://postgres-replica:5432/mydb"
+  SPRING_DATASOURCE_READ_JDBC_URL: "jdbc:postgresql://postgres:5432/mydb"
+  SPRING_DATASOURCE_READ_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+
+  # Database - Timeout/poolsize
+  SPRING_DATASOURCE_WRITE_HIKARI_CONNECTION_TIMEOUT: "60000"
+  SPRING_DATASOURCE_WRITE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+  SPRING_DATASOURCE_READ_HIKARI_CONNECTION_TIMEOUT: "60000"
+  SPRING_DATASOURCE_READ_HIKARI_MAXIMUM_POOL_SIZE: "5"
+
+  # JPA/Hibernate
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_JPA_SHOW_SQL: "true"
+  SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "org.hibernate.dialect.PostgreSQLDialect"
+
+  # Server
+  SERVER_PORT: "8080"
+  SERVER_SERVLET_CONTEXT_PATH: "/api"
+  SERVER_ERROR_WHITELABEL_ENABLED: "false"
+
+  # Logging
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK: "INFO"
+  LOGGING_LEVEL_COM_EXAMPLE: "DEBUG"
+
+  # Management/Actuator
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info"
+  MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+  MANAGEMENT_HEALTH_RABBIT_ENABLED: "true"
+
+  # JWT
+  JWT_EXPIRATION: "86400000"
+  JWT_REFRESH_EXPIRATION: "86400000"
+
+  # AWS S3 (LocalStack)
+  AWS_S3_REGION: "us-east-1"
+  AWS_S3_ENDPOINT: "http://localstack:4566"
+  AWS_S3_BUCKETNAME: "mp3files"
+
+  # RabbitMQ
+  SPRING_RABBITMQ_HOST: "rabbitmq"
+  SPRING_RABBITMQ_PORT: "5672"
+  SPRING_RABBITMQ_EXCHANGENAME: "classifierExchange"
+  SPRING_RABBITMQ_INBOUND_QUEUENAME: "classifier.response.queue"
+  SPRING_RABBITMQ_INBOUND_ROUTINGKEY: "classifier.response"
+  SPRING_RABBITMQ_OUTBOUND_ROUTINGKEY: "classifier.request"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: music-classifier
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: music-classifier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: music-genre-classifier-backend:latest
+          imagePullPolicy: Never  # For local images
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
