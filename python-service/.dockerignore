@@ -1,0 +1,34 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environments (never copy these into Docker)
+.venv/
+venv/
+env/
+
+# uv cache (safe to exclude)
+.uv/
+
+# Git
+.git/
+.gitignore
+
+# Editor / OS junk
+.vscode/
+.idea/
+.DS_Store
+
+# Test & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# Docker artifacts
+Dockerfile
+docker-compose.yml
+
+model
