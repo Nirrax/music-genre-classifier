@@ -1,0 +1,165 @@
+services:
+  frontend:
+    build:
+      context: ./react-frontend
+    container_name: music-genre-clasifier-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build: ./spring-api
+    container_name: music-genre-clasifier-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      # Database - Write
+      SPRING_DATASOURCE_WRITE_JDBC_URL: jdbc:postgresql://postgres:5432/mydb
+      SPRING_DATASOURCE_WRITE_USERNAME: postgres
+      SPRING_DATASOURCE_WRITE_PASSWORD: pass
+      SPRING_DATASOURCE_WRITE_DRIVER_CLASS_NAME: org.postgresql.Driver
+
+      # Database - Read
+      SPRING_DATASOURCE_READ_JDBC_URL: jdbc:postgresql://postgres:5432/mydb
+      SPRING_DATASOURCE_READ_USERNAME: postgres
+      SPRING_DATASOURCE_READ_PASSWORD: pass
+      SPRING_DATASOURCE_READ_DRIVER_CLASS_NAME: org.postgresql.Driver
+
+      # Database - Timeout/poolsize
+      SPRING_DATASOURCE_WRITE_HIKARI_CONNECTION_TIMEOUT: 60000
+      SPRING_DATASOURCE_WRITE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_READ_HIKARI_CONNECTION_TIMEOUT: 60000
+      SPRING_DATASOURCE_READ_HIKARI_MAXIMUM_POOL_SIZE: 5
+
+      # JPA/Hibernate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+
+      # RabbitMQ
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: rabbit
+      SPRING_RABBITMQ_PASSWORD: pass
+      SPRING_RABBITMQ_EXCHANGENAME: classifierExchange
+      SPRING_RABBITMQ_INBOUND_QUEUENAME: classifier.response.queue
+      SPRING_RABBITMQ_INBOUND_ROUTINGKEY: classifier.response
+      SPRING_RABBITMQ_OUTBOUND_ROUTINGKEY: classifier.request
+
+      # Server
+      SERVER_PORT: 8080
+#      SERVER_SERVLET_CONTEXT_PATH: /api
+
+      # Logging
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK: INFO
+      LOGGING_LEVEL_COM_EXAMPLE: DEBUG
+
+      # Management/Actuator
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+      MANAGEMENT_HEALTH_RABBIT_ENABLED: "true"
+
+      # JWT
+      JWT_SECRET: thisIsMysecregtfrdesww233eggtffeeddgkjjhhtdhttebd54ndhdhfhhhshs8877465sbbdd
+      JWT_EXPIRATION: 300000
+      JWT_REFRESH_EXPIRATION: 86400000
+
+      # AWS S3 (LocalStack)
+      AWS_S3_REGION: us-east-1
+      AWS_S3_ENDPOINT: http://localstack:4566
+      AWS_S3_BUCKETNAME: mp3files
+      AWS_S3_CREDENTIALS_ACCESSKEY: test
+      AWS_S3_CREDENTIALS_SECRETKEY: test
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/api/actuator/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    build:
+      context: ./python-service
+    container_name: music-genre-clasifier-worker
+    env_file:
+      - /python-service/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:latest
+    container_name: music-genre-clasifier-postgres
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pass
+
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: music-genre-clasifier-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/var/lib/localstack
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - CORS_ALLOWED_ORIGINS=*
+      - CORS_ALLOWED_METHODS=GET,PUT,POST,DELETE,HEAD,OPTIONS
+      - CORS_ALLOWED_HEADERS=*
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh
+    healthcheck:
+      test: ["CMD", "awslocal", "s3", "ls"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: music-genre-clasifier-rabbitmq
+    environment:
+      - "RABBITMQ_DEFAULT_USER=rabbit"
+      - "RABBITMQ_DEFAULT_PASS=pass"
+    ports:
+      #      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  localstack_data:
+
