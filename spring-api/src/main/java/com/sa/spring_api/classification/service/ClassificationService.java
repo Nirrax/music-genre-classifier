@@ -10,12 +10,9 @@ import java.util.Set;
 import java.util.UUID;
 
 public interface ClassificationService {
+    List<Classification> getUserClassifications(UUID userId);
 
-    ClassificationDTO getClassificationByIdAndUserId(UUID id, UUID userId);
-
-    void deleteClassificationById(UUID id);
-
-    List<ClassificationDTO> getUserClassifications(UUID userId);
+    Classification getClassificationByIdAndUserId(UUID id, UUID userId);
 
     String getUploadUrl(String fileName);
 
@@ -23,5 +20,7 @@ public interface ClassificationService {
 
     void handleClassificationResponse(ClassificationResponseMessage message);
 
-    ClassificationDTO getClassifiedResult(UUID id);
+    Classification getClassifiedResult(UUID id);
+
+    void deleteClassificationById(UUID id);
 }

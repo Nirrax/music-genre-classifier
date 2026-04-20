@@ -3,6 +3,7 @@ package com.sa.spring_api.classification.controller;
 import com.sa.spring_api.classification.dto.ClassificationDTO;
 import com.sa.spring_api.classification.dto.ClassificationRequest;
 import com.sa.spring_api.classification.dto.ClassificationUploadRequest;
+import com.sa.spring_api.classification.enums.Status;
 import com.sa.spring_api.classification.model.Classification;
 import com.sa.spring_api.classification.service.ClassificationService;
 import com.sa.spring_api.config.security.JwtUserDetails;
@@ -34,21 +35,24 @@ public class ClassificationController {
 
     @GetMapping("")
     public ResponseEntity<List<ClassificationDTO>> getClassifications(@AuthenticationPrincipal JwtUserDetails user) {
-        return new ResponseEntity<>(classificationService.getUserClassifications(user.getId()), HttpStatus.OK);
+        List<ClassificationDTO> classifications = classificationService.getUserClassifications(user.getId()).stream().map(ClassificationDTO::from).toList();
+
+        return new ResponseEntity<>(classifications, HttpStatus.OK);
+
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ClassificationDTO> getClassificationById(@AuthenticationPrincipal JwtUserDetails user, @PathVariable UUID id) {
-        return new ResponseEntity<>(classificationService.getClassificationByIdAndUserId(id, user.getId()), HttpStatus.OK);
+        return new ResponseEntity<>(ClassificationDTO.from(classificationService.getClassificationByIdAndUserId(id, user.getId())), HttpStatus.OK);
     }
 
     @PostMapping("")
-    public ResponseEntity<String> createClassification(@Valid @RequestBody ClassificationUploadRequest request){
+    public ResponseEntity<String> createClassification(@Valid @RequestBody ClassificationUploadRequest request) {
         return new ResponseEntity<>(classificationService.getUploadUrl(request.filename()), HttpStatus.CREATED);
     }
 
     @PostMapping("/classify")
-    public ResponseEntity<String> classify(@AuthenticationPrincipal JwtUserDetails user, @Valid @RequestBody ClassificationRequest request){
+    public ResponseEntity<String> classify(@AuthenticationPrincipal JwtUserDetails user, @Valid @RequestBody ClassificationRequest request) {
         return new ResponseEntity<>(classificationService.classifyFile(request.s3Key(), user.getId()).toString(), HttpStatus.CREATED);
     }
 

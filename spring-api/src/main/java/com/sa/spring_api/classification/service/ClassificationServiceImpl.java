@@ -54,24 +54,15 @@ public class ClassificationServiceImpl implements ClassificationService {
 
     @Transactional(readOnly = true)
     @Override
-    public List<ClassificationDTO> getUserClassifications(UUID userId) {
-        return classificationRepository.findByUserIdAndStatus(userId, Status.DONE).stream().map(
-                ClassificationDTO::from
-        ).toList();
+    public List<Classification> getUserClassifications(UUID userId) {
+        return classificationRepository.findByUserIdAndStatus(userId, Status.DONE);
     }
 
     @Transactional(readOnly = true)
     @Override
-    public ClassificationDTO getClassificationByIdAndUserId(UUID id, UUID userId) {
-        Classification classification = classificationRepository.findByIdAndUserId(id, userId)
-                .orElseThrow( () -> new ClassificationNotFoundException("Classification not found"));
-        return ClassificationDTO.from(classification);
-    }
-
-    @Transactional
-    @Override
-    public void deleteClassificationById(UUID id) {
-        classificationRepository.deleteById(id);
+    public Classification getClassificationByIdAndUserId(UUID id, UUID userId) {
+        return classificationRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ClassificationNotFoundException("Classification not found"));
     }
 
     @Override
@@ -151,9 +142,9 @@ public class ClassificationServiceImpl implements ClassificationService {
     @EventListener
     @Transactional
     @Override
-    public void handleClassificationResponse(ClassificationResponseMessage message){
+    public void handleClassificationResponse(ClassificationResponseMessage message) {
         Classification classification = classificationRepository.findById(message.classificationId())
-                .orElseThrow( () -> new ClassificationNotFoundException("Classification not found"));
+                .orElseThrow(() -> new ClassificationNotFoundException("Classification not found"));
 
         classification.setGenre(message.genre());
         classification.setGenreSequence(message.genreSequence());
@@ -166,7 +157,7 @@ public class ClassificationServiceImpl implements ClassificationService {
 
     @Transactional(readOnly = true)
     @Override
-    public ClassificationDTO getClassifiedResult(UUID id) {
+    public Classification getClassifiedResult(UUID id) {
         Classification classification = classificationRepository.findById(id)
                 .orElseThrow(() -> new ClassificationNotFoundException("Classification not found for id: " + id));
 
@@ -178,7 +169,13 @@ public class ClassificationServiceImpl implements ClassificationService {
             throw new ClassificationNotReadyException("Classification not yet completed for id: " + id);
         }
 
-        return ClassificationDTO.from(classification);
+        return classification;
+    }
+
+    @Transactional
+    @Override
+    public void deleteClassificationById(UUID id) {
+        classificationRepository.deleteById(id);
     }
 
 }
